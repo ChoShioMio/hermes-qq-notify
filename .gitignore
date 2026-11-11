@@ -1,0 +1,37 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+credentials*
+*credentials*.txt
+qq-notify.txt
+*.pem
+*.key
+*.pfx
+*.p12
+*.sqlite*
+*.db
+*.db-*
+# Runtime/private materials
+logs/
+artifacts/
+.local/
+state.json
+.stopped
+.supervisor.lock
+*.tmp
+*.log
+*.log.*
+# Environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+# Editors/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

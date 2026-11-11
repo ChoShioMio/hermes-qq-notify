@@ -1,0 +1,10 @@
+[
+  {
+    "name": "qq-notify",
+    "url": "http://127.0.0.1:8787/event",
+    "events": ["post_llm_call", "pre_approval_request", "pre_tool_call", "api_request_error"],
+    "matcher": "^clarify$",
+    "secret_env": "HERMES_NOTIFY_SECRET",
+    "timeout": 10
+  }
+]
