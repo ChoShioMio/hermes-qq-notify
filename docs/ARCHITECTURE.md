@@ -33,7 +33,7 @@ Webhook 可能包含完整对话历史。通知可能带有会话标题、提问
 
 ## 事件
 
-- **`post_llm_call`**：有最终回复时生成完成摘要。默认只发已知包含工具调用的轮次；纯聊天跳过。历史不足时无法判断，可能仍发通知。
+- **`post_llm_call`**：有最终回复时生成完成摘要。默认跳过纯聊天、子代理回复和异步委派回执触发的回复。异步回执通过当前轮的 `display_kind` 或 Hermes 的固定消息头识别；主会话主动发起的普通轮次照常筛选。`NOTIFY_SUBAGENT_REPLIES=1` 可纳入这些回复，`ONLY_TOOL_TURNS` 仍适用。
 - **`pre_approval_request`**：提醒用户回到 Hermes 审批；`surface=smart` 的自动判断阶段不通知。审批仍在 Hermes 中完成。
 - **`pre_tool_call` / `clarify`**：发送调用前的问题与选项，兼容批量 `questions[]` 和旧格式。问题后续可能已回答或校验失败，通知不会撤回。
 - **`api_request_error`**：显示模型 API 错误摘要。

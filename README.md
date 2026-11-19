@@ -39,10 +39,13 @@ uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 | `NOTIFY_SECRET` | webhook 共享密钥，需与 Hermes 的 `HERMES_NOTIFY_SECRET` 一致。 |
 | `NOTIFY_FORMAT` | `image`（默认）或 `text`。 |
 | `SUMMARY_CHARS` | 摘要长度，默认 `1400`。 |
-| `ONLY_TOOL_TURNS` | 默认只提醒已知包含工具调用的完成轮次；设为 `0` 可提醒所有完成轮次。 |
+| `ONLY_TOOL_TURNS` | 默认跳过纯聊天；设为 `0` 可提醒聊天轮次。 |
+| `NOTIFY_SUBAGENT_REPLIES` | 默认 `0`，跳过子代理回复和异步委派回执引发的回复；设为 `1` 可纳入完成通知。 |
 | `NOTIFY_SESSION_END` | 默认关闭；启用时还需在 Hermes outbound 订阅该事件。 |
 
 `state.db` 只读用于查询会话标题等信息；缺失时服务可用会话 ID 显示。
+
+主会话的普通任务汇总、审批、提问和报错照常提醒。修改 `NOTIFY_SUBAGENT_REPLIES` 后重启通知服务；设为 `1` 时仍按 `ONLY_TOOL_TURNS` 筛选。
 
 ## 配对 Bot
 

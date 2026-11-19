@@ -90,6 +90,74 @@ class MediaTests(unittest.TestCase):
         self.assertIn('[代码块已省略]', text)
         self.assertNotIn('secret_code', text)
 
+    def test_subagent_completion_is_muted_by_default(self):
+        payload = {'session_id': 'child-example', 'extra': {
+            'platform': 'subagent', 'assistant_response': '子任务结果',
+            'conversation_history': [{'role': 'user', 'content': '子任务'}, {'role': 'tool'}],
+        }}
+        with patch.object(n, 'ENV', {}), patch.object(n, 'meta_lines', return_value=[]):
+            self.assertIsNone(n.build_message('post_llm_call', payload))
+
+    def test_async_delegation_wake_reply_is_muted_by_default(self):
+        headers = (
+            '[ASYNC DELEGATION BATCH COMPLETE — deleg_00000000]',
+            '[ASYNC DELEGATION COMPLETE — deleg_00000000]',
+            '[ASYNC DELEGATION TASK FAILED — deleg_00000000, task 1/2]',
+        )
+        with patch.object(n, 'ENV', {}), patch.object(n, 'meta_lines', return_value=[]):
+            for header in headers:
+                with self.subTest(header=header):
+                    prompt = header + '\nBackground result'
+                    payload = {'extra': {'platform': 'tui', 'assistant_response': '已收到',
+                                         'user_message': prompt,
+                                         'conversation_history': [{'role': 'user', 'content': prompt}, {'role': 'tool'}]}}
+                    self.assertIsNone(n.build_message('post_llm_call', payload))
+
+    def test_async_delegation_display_kind_is_muted(self):
+        payload = {'extra': {'assistant_response': '已收到', 'user_message': 'Background result',
+                             'conversation_history': [
+                                 {'role': 'user', 'display_kind': 'async_delegation_complete'}, {'role': 'tool'},
+                             ]}}
+        with patch.object(n, 'ENV', {}), patch.object(n, 'meta_lines', return_value=[]):
+            self.assertIsNone(n.build_message('post_llm_call', payload))
+
+    def test_subagent_reply_opt_in_uses_existing_tool_turn_filter(self):
+        with patch.object(n, 'ENV', {'NOTIFY_SUBAGENT_REPLIES': '1'}), patch.object(n, 'meta_lines', return_value=[]), patch.object(n, 'ONLY_TOOL_TURNS', True), patch.object(n, 'log'):
+            for platform, prompt in (
+                ('subagent', '子任务'),
+                ('tui', '[ASYNC DELEGATION BATCH COMPLETE — deleg_00000000]'),
+            ):
+                with self.subTest(platform=platform):
+                    extra = {'platform': platform, 'assistant_response': '子任务结果', 'user_message': prompt,
+                             'conversation_history': [{'role': 'user', 'content': prompt}, {'role': 'tool'}]}
+                    payload = {'extra': extra}
+                    built = n.build_message('post_llm_call', payload)
+                    assert built is not None
+                    self.assertIn('子任务结果', built[1])
+                    extra['conversation_history'].pop()
+                    self.assertIsNone(n.build_message('post_llm_call', payload))
+
+    def test_parent_turn_using_delegate_task_still_notifies(self):
+        notice = '[ASYNC DELEGATION BATCH COMPLETE — deleg_00000000]'
+        prompt = '请分析这条通知：' + chr(10) + notice
+        payload = {'extra': {'platform': 'tui', 'user_message': prompt, 'assistant_response': '主会话汇总',
+                             'conversation_history': [
+                                 {'role': 'user', 'display_kind': 'async_delegation_complete'},
+                                 {'role': 'user', 'content': prompt},
+                                 {'role': 'assistant', 'tool_calls': [{'function': {'name': 'delegate_task'}}]},
+                             ]}}
+        with patch.object(n, 'ENV', {}), patch.object(n, 'meta_lines', return_value=[]), patch.object(n, 'ONLY_TOOL_TURNS', True):
+            built = n.build_message('post_llm_call', payload)
+        assert built is not None
+        self.assertIn('主会话汇总', built[1])
+
+    def test_subagent_filter_does_not_mute_api_errors(self):
+        payload = {'extra': {'platform': 'subagent', 'error_message': '模型调用失败'}}
+        with patch.object(n, 'ENV', {}), patch.object(n, 'meta_lines', return_value=[]):
+            built = n.build_message('api_request_error', payload)
+        assert built is not None
+        self.assertIn('模型调用失败', built[1])
+
     def test_notification_uploads_inline_png_and_sends_media(self):
         client = n.QQClient('fake-app', 'fake-secret', 'https://example.invalid', openid='fake-user')
         calls = []

@@ -307,9 +307,37 @@ def turn_had_tool_calls(payload: dict) -> bool | None:
     return False
 
 
+_ASYNC_DELEGATION_NOTICE = re.compile(
+    r"\[ASYNC DELEGATION (?:(?:BATCH )?COMPLETE — deleg_[0-9a-f]{8}"
+    r"|TASK FAILED — deleg_[0-9a-f]{8}, task \d+/\d+)\]"
+)
+
+
+def is_subagent_reply(extra: dict) -> bool:
+    if extra.get("platform") == "subagent":
+        return True
+    history = extra.get("conversation_history")
+    if isinstance(history, list):
+        for message in reversed(history):
+            if isinstance(message, dict) and message.get("role") == "user":
+                # Only the current turn's input can account for this reply.
+                if message.get("display_kind") == "async_delegation_complete":
+                    return True
+                break
+    prompt = extra.get("user_message")
+    if not isinstance(prompt, str):
+        return False
+    first_line = prompt.partition(chr(10))[0].rstrip(chr(13))
+    return _ASYNC_DELEGATION_NOTICE.fullmatch(first_line) is not None
+
+
 def build_message(event: str, payload: dict) -> tuple[str, str] | None:
     """返回 (去重键, 待发文本)；返回 None 表示忽略。"""
     extra = payload.get("extra") or {}
+    if (event == "post_llm_call"
+            and ENV.get("NOTIFY_SUBAGENT_REPLIES", "0").strip().lower() not in ("1", "true", "yes")
+            and is_subagent_reply(extra)):
+        return None
     sid = str(payload.get("session_id") or "")
     stamp = time.strftime("%m-%d %H:%M:%S")
     head = f"⏱ {stamp}"
